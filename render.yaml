@@ -1,0 +1,13 @@
+# Render blueprint — deploy the capstone API as a Docker web service.
+services:
+  - type: web
+    name: flagship-ai-platform
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: POLICY
+        value: heuristic        # set to "anthropic" + add ANTHROPIC_API_KEY for real tool-use
+      # Add OPENAI_API_KEY / ANTHROPIC_API_KEY as dashboard secrets for live models.
