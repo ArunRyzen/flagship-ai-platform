@@ -11,6 +11,17 @@ traced, evaluated behind a CI ship-gate, and served with caching, rate limiting,
 
 ---
 
+## ⚡ Quick Start
+
+```bash
+git clone https://github.com/Arunops700/flagship-ai-platform.git && cd flagship-ai-platform
+uv sync --extra dev          # installs everything — no API keys needed
+uv run flagship ask "What do guardrails defend against?"   # guardrails → agent → RAG → answer
+```
+*Runs fully offline.* Add `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` to `.env` for live models.
+
+---
+
 ## What this is
 
 The finale of my [AI_Engineer](https://github.com/Arunops700/AI_Engineer) portfolio. Each earlier
