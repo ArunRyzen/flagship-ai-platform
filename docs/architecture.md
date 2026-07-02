@@ -18,8 +18,8 @@ an **eval ship-gate**.
 Each capability is proven in its own repo; the capstone's job is to show they **compose** without
 becoming a tangle. The trick is that every layer is a small interface:
 
-- `Embedder` (hashing | OpenAI), `Policy` (scripted | heuristic | Anthropic), `Tool` /
-  `ToolRegistry`, `Tracer`. Swapping any implementation touches only `factory.py`.
+- `Embedder` (hashing | Gemini | OpenAI), `Policy` (scripted | heuristic | Gemini | Anthropic),
+  `Tool` / `ToolRegistry`, `Tracer`. Swapping any implementation touches only `factory.py`.
 
 So the integrated pipeline stays readable, and the whole thing runs **offline** for tests (hashing
 embedder + heuristic policy) — the same testability principle from every milestone.

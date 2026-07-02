@@ -14,26 +14,27 @@ traced, evaluated behind a CI ship-gate, and served with caching, rate limiting,
 ## ⚡ Quick Start
 
 ```bash
-git clone https://github.com/Arunops700/flagship-ai-platform.git && cd flagship-ai-platform
+git clone https://github.com/ArunRyzen/flagship-ai-platform.git && cd flagship-ai-platform
 uv sync --extra dev          # installs everything — no API keys needed
 uv run flagship ask "What do guardrails defend against?"   # guardrails → agent → RAG → answer
 ```
-*Runs fully offline.* Add `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` to `.env` for live models.
+*Runs fully offline.* For live models, one free `GEMINI_API_KEY` in `.env` is all you need
+(see [Live mode](#live-mode-gemini-first)).
 
 ---
 
 ## What this is
 
-The finale of my [AI_Engineer](https://github.com/Arunops700/AI_Engineer) portfolio. Each earlier
+The finale of my [AI_Engineer](https://github.com/ArunRyzen/AI_Engineer) portfolio. Each earlier
 project proved one capability; this one **integrates them all** behind a single `Assistant.ask()`:
 
 | Layer | What it does | Milestone repo |
 |-------|--------------|----------------|
-| 🛡️ **Guardrails** | Block prompt injection, redact PII — *before* the agent runs | [llm-eval-kit](https://github.com/Arunops700/llm-eval-kit) |
-| 🤖 **ReAct agent** | Reason → call a tool → observe → repeat, with a step budget | [agentic-workbench](https://github.com/Arunops700/agentic-workbench) |
-| 📚 **Hybrid RAG** | `knowledge_search` tool: dense + BM25 + RRF retrieval | [rag-knowledge-assistant](https://github.com/Arunops700/rag-knowledge-assistant) |
-| 🧲 **Structured output** | Validated, cited answers | [structured-extractor](https://github.com/Arunops700/structured-extractor) |
-| 🎯 **Eval ship-gate** | Score the whole pipeline; fail CI on regression | [llm-eval-kit](https://github.com/Arunops700/llm-eval-kit) |
+| 🛡️ **Guardrails** | Block prompt injection, redact PII — *before* the agent runs | [llm-eval-kit](https://github.com/ArunRyzen/llm-eval-kit) |
+| 🤖 **ReAct agent** | Reason → call a tool → observe → repeat, with a step budget | [agentic-workbench](https://github.com/ArunRyzen/agentic-workbench) |
+| 📚 **Hybrid RAG** | `knowledge_search` tool: dense + BM25 + RRF retrieval | [rag-knowledge-assistant](https://github.com/ArunRyzen/rag-knowledge-assistant) |
+| 🧲 **Structured output** | Validated, cited answers | [structured-extractor](https://github.com/ArunRyzen/structured-extractor) |
+| 🎯 **Eval ship-gate** | Score the whole pipeline; fail CI on regression | [llm-eval-kit](https://github.com/ArunRyzen/llm-eval-kit) |
 | 👁️ **Tracing** | Span tree per request (guardrails → agent → tools) | llm-eval-kit |
 | 🚀 **Serving** | Semantic cache, rate limiting, `/metrics`, deploy | rag-knowledge-assistant |
 
@@ -66,18 +67,36 @@ flagship eval        # end-to-end ship gate over the golden set (exit 1 on regre
 
 ## Tech stack
 
-`Python 3.12` · `Pydantic v2` · `NumPy` · `Anthropic` + `OpenAI` · `FastAPI` · `Typer` · `uv` ·
-`ruff` · `mypy` · `pytest` · `Docker` · `GitHub Actions`
+`Python 3.12` · `Pydantic v2` · `NumPy` · `Gemini (google-genai)` + `Anthropic` + `OpenAI` ·
+`FastAPI` · `Typer` · `uv` · `ruff` · `mypy` · `pytest` · `Docker` · `GitHub Actions`
 
 ## Setup & run
 
 ```bash
-git clone https://github.com/Arunops700/flagship-ai-platform.git
+git clone https://github.com/ArunRyzen/flagship-ai-platform.git
 cd flagship-ai-platform
 uv sync --extra dev
 ```
-Runs **fully offline** (hashing embedder + heuristic agent policy). Add `OPENAI_API_KEY` for semantic
-embeddings and `ANTHROPIC_API_KEY` (with `POLICY=anthropic`) for real Claude tool-use.
+Runs **fully offline** (hashing embedder + heuristic agent policy) — no keys, no cost.
+
+### Live mode (Gemini-first)
+
+One **free** Gemini key upgrades *both* live seams at once:
+
+```bash
+cp .env.example .env       # then paste your key from https://aistudio.google.com/apikey
+# GEMINI_API_KEY=...
+uv run flagship ask "What do guardrails defend against?"   # now answered by gemini-2.5-flash
+```
+
+| Seam | Offline default | With `GEMINI_API_KEY` |
+|------|-----------------|------------------------|
+| Agent policy (the "brain") | `HeuristicPolicy` (rules) | `GeminiPolicy` — real tool-use via `gemini-2.5-flash` |
+| Embeddings (search quality) | `HashingEmbedder` (word counts) | `GeminiEmbedder` — `gemini-embedding-001` |
+
+Alternatives: `OPENAI_API_KEY` for OpenAI embeddings, or `ANTHROPIC_API_KEY` (with
+`POLICY=anthropic`) for Claude tool-use — both used only when no Gemini key is set.
+Tests always stay offline regardless of your keys.
 
 **CLI:** `flagship ask "<q>"` · `flagship eval` · `flagship guard "<text>"` · `flagship trace "<q>"`
 
@@ -111,13 +130,16 @@ interfaces and tested **offline** with no keys.
 ```bash
 uv run ruff check . && uv run mypy . && uv run pytest
 ```
-18 tests, fully offline (scripted/heuristic policy, hashing embedder). CI gates lint + types + tests;
+26 tests, fully offline (scripted/heuristic policy, hashing embedder, mocked Gemini clients). CI
+gates lint + types + tests;
 `render.yaml` + a CI-gated deploy workflow ship the Docker service (no GPU).
 
 ## Learn more
+- [`docs/code-walkthrough.md`](docs/code-walkthrough.md) — **start here if you're new**: a
+  plain-English, file-by-file tour, including one question traced through all five boxes
 - [`docs/architecture.md`](docs/architecture.md) — how the layers compose
 - [`docs/interview-questions.md`](docs/interview-questions.md) — system-design Q&A for this platform
 - [`docs/lessons-learned.md`](docs/lessons-learned.md)
 
 ## License
-[MIT](LICENSE) · Capstone of the [AI_Engineer](https://github.com/Arunops700/AI_Engineer) portfolio (Milestone 6).
+[MIT](LICENSE) · Capstone of the [AI_Engineer](https://github.com/ArunRyzen/AI_Engineer) portfolio (Milestone 6).

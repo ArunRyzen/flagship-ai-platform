@@ -1,6 +1,11 @@
 """A lightweight in-memory tracer (spans, duration, tokens, cost) — observability for the pipeline.
 
 Same shape you'd export to Langfuse / Phoenix / OpenTelemetry in production.
+
+Beginner note: a **span** is a stopwatch with a name — "this named piece of work started here,
+ended there, and here are some facts about it". Spans nest: the "ask" span contains a
+"guardrails" span and an "agent" span, so one request becomes a little timeline tree you can
+read to see exactly where time went and what each stage decided.
 """
 
 from __future__ import annotations
@@ -43,6 +48,12 @@ class Tracer:
 
     @contextmanager
     def span(self, name: str, **attributes: Any) -> Iterator[Span]:
+        """Start a span with `with tracer.span("name"):` — it times the block automatically.
+
+        The stack tracks which span is currently "open": a new span becomes a child of the
+        one on top (that's how nesting happens), and the `finally` guarantees the stopwatch
+        stops even if the code inside raises.
+        """
         span = Span(name=name, attributes=dict(attributes), start=perf_counter())
         (self._stack[-1].children if self._stack else self._roots).append(span)
         self._stack.append(span)

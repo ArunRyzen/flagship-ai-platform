@@ -1,4 +1,12 @@
-"""A semantic response cache (serves cached answers for similar queries)."""
+"""A semantic response cache (serves cached answers for similar queries).
+
+Beginner note: a normal cache only hits on the *exact same* string. A semantic cache embeds
+each query into a vector and hits when a new query's vector is nearly identical (cosine
+similarity ≥ threshold) to a stored one — so "What does RAG do?" can be served from the answer
+to "what does rag do ?". Each hit skips the whole agent + retrieval run: faster and cheaper.
+The threshold is deliberately high (0.97): serving a *wrong* cached answer is far worse than
+missing the cache.
+"""
 
 from __future__ import annotations
 
@@ -34,6 +42,7 @@ class SemanticCache:
         self.stats = CacheStats()
 
     def get(self, query: str) -> dict | None:
+        """Return the stored answer whose query is most similar — if similar *enough*."""
         if not self._entries:
             self.stats.misses += 1
             return None
@@ -50,6 +59,7 @@ class SemanticCache:
         return None
 
     def put(self, query: str, answer: dict) -> None:
+        """Store (query-embedding, answer); evict the oldest entry once the cache is full."""
         self._entries.append((self._embedder.embed([query])[0], answer))
         if len(self._entries) > self._max_size:
             self._entries.pop(0)
