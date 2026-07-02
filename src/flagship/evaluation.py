@@ -2,6 +2,13 @@
 
 Scores the assistant's answers against a golden set and fails the gate below a threshold — the same
 "versioned dataset + numeric score + regression alarm" discipline, applied to the whole pipeline.
+
+Beginner note: think of this as unit tests for *answer quality*. A "golden set" is a small,
+version-controlled list of (question, expected-answer-fragment) pairs. `run_eval` asks the real
+assistant every question and grades each answer; `gate` turns the overall score into a hard
+pass/fail. CI runs `flagship eval`, so a code change that quietly makes answers worse (say,
+someone breaks retrieval) drops the pass rate below the threshold and the build goes red —
+BEFORE the regression ships.
 """
 
 from __future__ import annotations
@@ -49,6 +56,11 @@ def _tokens(text: str) -> set[str]:
 
 
 def _case_passes(output: str, reference: str) -> bool:
+    """Grade one answer, cheaply and deterministically (no LLM judge needed here).
+
+    Pass if the expected fragment appears verbatim in the answer, OR if the two share
+    at least half their words (Jaccard overlap ≥ 0.5) — a forgiving-but-honest match.
+    """
     if reference.strip().lower() in output.lower():
         return True
     a, b = _tokens(output), _tokens(reference)
@@ -69,6 +81,7 @@ def run_eval(
 
 
 def gate(report: EvalReport) -> bool:
+    """The ship gate: raise (→ non-zero exit → red CI) if the pass rate is below threshold."""
     if not report.passed:
         raise GateFailure(
             f"{report.dataset}: pass_rate {report.pass_rate:.2f} < threshold {report.threshold:.2f}"
