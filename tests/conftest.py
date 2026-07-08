@@ -18,7 +18,9 @@ def _offline_env(monkeypatch: pytest.MonkeyPatch) -> None:
     live GeminiPolicy/GeminiEmbedder during tests — slow, flaky, and costly. Deleting the
     variables per-test guarantees the offline fakes are always selected.
     """
-    for var in ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
+    # LLM_DEBUG is scrubbed too, so a developer's exported debug flag can't make
+    # unrelated tests noisy; the debuglog tests opt back in with monkeypatch.setenv.
+    for var in ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "LLM_DEBUG"):
         monkeypatch.delenv(var, raising=False)
     # Also ignore any local `.env` file for the duration of each test.
     monkeypatch.setitem(Settings.model_config, "env_file", None)

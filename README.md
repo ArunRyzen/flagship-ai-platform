@@ -100,6 +100,22 @@ Tests always stay offline regardless of your keys.
 
 **CLI:** `flagship ask "<q>"` · `flagship eval` · `flagship guard "<text>"` · `flagship trace "<q>"`
 
+### 🔍 Peek behind the curtain (`LLM_DEBUG`)
+
+Set `LLM_DEBUG=1` and every AI call site narrates itself on stderr — the agent's policy
+requests/decisions, each tool result, and every embedding call — as plain
+`=== AI REQUEST ... === / === AI RESPONSE ... ===` blocks. It works **fully offline** too:
+the keyless fakes (`HeuristicPolicy`, `HashingEmbedder`) are labelled so you can watch the
+whole `ask()` pipeline think without any API key. API keys are never logged, and long
+fields are truncated.
+
+```powershell
+$env:LLM_DEBUG="1"; uv run flagship ask "What do guardrails defend against?"
+Remove-Item Env:LLM_DEBUG    # turn it back off
+```
+
+(bash/zsh: `LLM_DEBUG=1 uv run flagship ask "..."`.)
+
 **API:**
 ```bash
 uv run uvicorn flagship.api:app --reload
@@ -130,7 +146,7 @@ interfaces and tested **offline** with no keys.
 ```bash
 uv run ruff check . && uv run mypy . && uv run pytest
 ```
-26 tests, fully offline (scripted/heuristic policy, hashing embedder, mocked Gemini clients). CI
+31 tests, fully offline (scripted/heuristic policy, hashing embedder, mocked Gemini clients). CI
 gates lint + types + tests;
 `render.yaml` + a CI-gated deploy workflow ship the Docker service (no GPU).
 

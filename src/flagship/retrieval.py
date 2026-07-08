@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
+from flagship.debuglog import log_block
 from flagship.models import Chunk, RetrievedChunk
 
 if TYPE_CHECKING:
@@ -66,6 +67,18 @@ class Embedder(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]: ...
 
 
+def _log_embed_request(model: str, texts: list[str]) -> None:
+    """LLM_DEBUG block for an embedding call: which model, how many texts, short previews."""
+    previews = " | ".join(t[:80] for t in texts[:5])
+    log_block("AI REQUEST (embeddings)", model=model, text_count=len(texts), previews=previews)
+
+
+def _log_embed_response(vectors: list[list[float]]) -> None:
+    """LLM_DEBUG block for the result: only the shape — raw vectors would be noise."""
+    dims = len(vectors[0]) if vectors else 0
+    log_block("AI RESPONSE (embeddings)", vector_count=len(vectors), dims=dims)
+
+
 class HashingEmbedder:
     """Deterministic offline bag-of-words embedder (real lexical similarity, no key).
 
@@ -78,6 +91,7 @@ class HashingEmbedder:
         self.dim = dim
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        _log_embed_request("HashingEmbedder (offline, no API call)", texts)
         out = []
         for text in texts:
             vec = [0.0] * self.dim
@@ -87,6 +101,7 @@ class HashingEmbedder:
                 vec[idx] += 1.0
             norm = math.sqrt(sum(v * v for v in vec)) or 1.0
             out.append([v / norm for v in vec])
+        _log_embed_response(out)
         return out
 
 
@@ -104,8 +119,11 @@ class GeminiEmbedder:
         self._model = model
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        _log_embed_request(f"Gemini {self._model}", texts)
         resp = self._client.models.embed_content(model=self._model, contents=texts)
-        return [list(e.values or []) for e in resp.embeddings or []]
+        vectors = [list(e.values or []) for e in resp.embeddings or []]
+        _log_embed_response(vectors)
+        return vectors
 
 
 class OpenAIEmbedder:
@@ -118,8 +136,11 @@ class OpenAIEmbedder:
         self._model = model
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        _log_embed_request(f"OpenAI {self._model}", texts)
         resp = self._client.embeddings.create(model=self._model, input=texts)
-        return [d.embedding for d in resp.data]
+        vectors = [d.embedding for d in resp.data]
+        _log_embed_response(vectors)
+        return vectors
 
 
 # --- Retriever ----------------------------------------------------------------------
