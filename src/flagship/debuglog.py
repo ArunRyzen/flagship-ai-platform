@@ -49,7 +49,7 @@ def _dotenv_debug_value() -> str:
         from dotenv import dotenv_values
     except ImportError:
         return ""
-    return dotenv_values(".env").get("LLM_DEBUG") or ""
+    return dotenv_values(".env", encoding="utf-8-sig").get("LLM_DEBUG") or ""
 
 
 def debug_enabled() -> bool:
