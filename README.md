@@ -109,12 +109,22 @@ the keyless fakes (`HeuristicPolicy`, `HashingEmbedder`) are labelled so you can
 whole `ask()` pipeline think without any API key. API keys are never logged, and long
 fields are truncated.
 
+Two ways to turn it on:
+
 ```powershell
+# 1) One-off, via the environment:
 $env:LLM_DEBUG="1"; uv run flagship ask "What do guardrails defend against?"
 Remove-Item Env:LLM_DEBUG    # turn it back off
 ```
 
-(bash/zsh: `LLM_DEBUG=1 uv run flagship ask "..."`.)
+```dotenv
+# 2) Persistently, via your project .env file:
+LLM_DEBUG=1
+```
+
+(bash/zsh: `LLM_DEBUG=1 uv run flagship ask "..."`.) A real environment variable always
+takes precedence over `.env` when set — so `LLM_DEBUG=0` in the environment force-disables
+debug even if your `.env` says `1`.
 
 **API:**
 ```bash
