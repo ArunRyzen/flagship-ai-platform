@@ -49,6 +49,8 @@ Every box below lists *the file and function where it happens*, so you can put a
 Even easier than breakpoints: turn on `LLM_DEBUG` (PowerShell: `$env:LLM_DEBUG="1"`) and
 re-run `flagship ask` to watch boxes 2–3 happen live — each agent turn and each embedding
 call prints an `=== AI REQUEST/RESPONSE ===` block to stderr, offline fakes included.
+`LLM_DEBUG=1` in your `.env` file works too, but a real environment variable — when set —
+always takes precedence over the `.env` value.
 
 ### Box 1 — Guardrail screening
 **Where:** `pipeline.py` → `Assistant.ask` (the first `with tracer.span("guardrails")` block),

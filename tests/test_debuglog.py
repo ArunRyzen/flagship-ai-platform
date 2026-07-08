@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from flagship.debuglog import debug_enabled, log_block
+from flagship.debuglog import _dotenv_debug_value, debug_enabled, log_block
 from flagship.retrieval import HashingEmbedder
 from tests.conftest import make_assistant
 
@@ -12,7 +14,7 @@ from tests.conftest import make_assistant
 def test_debug_disabled_by_default_and_for_falsy_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # conftest's autouse fixture already deleted LLM_DEBUG → off.
+    # conftest's autouse fixture pinned LLM_DEBUG="0" → off (and no .env can leak in).
     assert not debug_enabled()
     for falsy in ("0", "false", "FALSE", "  False  "):
         monkeypatch.setenv("LLM_DEBUG", falsy)
@@ -21,6 +23,36 @@ def test_debug_disabled_by_default_and_for_falsy_values(
     assert debug_enabled()
     monkeypatch.setenv("LLM_DEBUG", "yes")
     assert debug_enabled()
+
+
+def test_dotenv_file_enables_debug(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the real env var unset, LLM_DEBUG=1 in ./.env turns debug on."""
+    (tmp_path / ".env").write_text("LLM_DEBUG=1\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("LLM_DEBUG", raising=False)  # undo conftest's pin → fallback path
+    _dotenv_debug_value.cache_clear()  # the .env read is cached per process
+    assert debug_enabled()
+
+
+def test_env_var_beats_dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An explicit real env var wins over .env — even to force debug OFF."""
+    (tmp_path / ".env").write_text("LLM_DEBUG=1\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    _dotenv_debug_value.cache_clear()
+    monkeypatch.setenv("LLM_DEBUG", "0")
+    assert not debug_enabled()
+    monkeypatch.setenv("LLM_DEBUG", "yes")
+    assert debug_enabled()
+
+
+def test_neither_env_var_nor_dotenv_means_off(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No env var and no .env file (empty tmp dir) → debug stays off."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("LLM_DEBUG", raising=False)
+    _dotenv_debug_value.cache_clear()
+    assert not debug_enabled()
 
 
 def test_silent_when_unset(capsys: pytest.CaptureFixture[str]) -> None:
