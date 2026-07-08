@@ -46,6 +46,9 @@ assistant.ask("What do guardrails defend against?")
 Every box below lists *the file and function where it happens*, so you can put a breakpoint
 (or a `print`) on each and watch the question travel. The composed path lives entirely inside
 **`src/flagship/pipeline.py` → `Assistant.ask`** — the boxes are just its paragraphs.
+Even easier than breakpoints: turn on `LLM_DEBUG` (PowerShell: `$env:LLM_DEBUG="1"`) and
+re-run `flagship ask` to watch boxes 2–3 happen live — each agent turn and each embedding
+call prints an `=== AI REQUEST/RESPONSE ===` block to stderr, offline fakes included.
 
 ### Box 1 — Guardrail screening
 **Where:** `pipeline.py` → `Assistant.ask` (the first `with tracer.span("guardrails")` block),
@@ -259,12 +262,13 @@ answers are never cached.
 built-in docs + the `GOLDEN` eval set, so everything works with zero setup. `errors.py`: the
 exception family (`GateFailure` is the one CI cares about).
 
-### `tests/` — 26 offline tests
+### `tests/` — 31 offline tests
 One test file per concern, mirroring the modules. `conftest.py` builds a fully offline
 assistant *and* deletes any real API keys from the environment per test, so the suite is
 identical on your laptop and in CI. `test_gemini.py` covers the live Gemini seams with
 **mocked** clients — verifying our request shaping, response parsing, and factory selection
-without any network.
+without any network. `test_debuglog.py` checks the `LLM_DEBUG` learning aid: silent when the
+variable is unset, full request/response blocks on stderr when it's on.
 
 ---
 
@@ -294,6 +298,7 @@ without any network.
 | Semantic cache | `src/flagship/cache.py` | `SemanticCache.get` / `.put` |
 | Rate limiting | `src/flagship/ratelimit.py` | `RateLimiter.allow` |
 | HTTP endpoints | `src/flagship/api.py` | `ask`, `metrics`, `evaluate`, `health` |
+| The `LLM_DEBUG` debug blocks | `src/flagship/debuglog.py` (+ call sites in `agent.py` → `run_agent`, `retrieval.py` embedders) | `debug_enabled`, `log_block` |
 | Offline-test guarantee | `tests/conftest.py` | `_offline_env`, `make_assistant` |
 | Mocked Gemini tests | `tests/test_gemini.py` | all |
 

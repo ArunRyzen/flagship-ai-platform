@@ -22,6 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
+from flagship.debuglog import debug_enabled, log_block
 from flagship.errors import PolicyError
 from flagship.models import Decision, RetrievedChunk, Step, ToolCall, ToolResult
 
@@ -48,6 +49,10 @@ class ToolRegistry:
 
     def __init__(self, tools: list[Tool]) -> None:
         self._tools = {t.name: t for t in tools}
+
+    def names(self) -> list[str]:
+        """The tool names on offer (used by LLM_DEBUG to show what the policy could pick)."""
+        return list(self._tools)
 
     def execute(self, call: ToolCall) -> ToolResult:
         tool = self._tools.get(call.name)
@@ -366,6 +371,37 @@ class AnthropicPolicy:
         return Decision(finish=text or "(no answer)")
 
 
+# --- LLM_DEBUG helpers (see debuglog.py): render the loop state as readable text ------
+
+
+def _policy_label(policy: Policy) -> str:
+    """Name the brain in debug blocks, flagging the keyless fakes so logs make sense offline."""
+    name = type(policy).__name__
+    if isinstance(policy, ScriptedPolicy | HeuristicPolicy):
+        return f"{name} (offline, no API call)"
+    return name
+
+
+def _describe_history(history: list[Step]) -> str:
+    """One line per past turn: which tools were called and what came back."""
+    if not history:
+        return "(empty - first turn)"
+    lines = []
+    for i, step in enumerate(history, start=1):
+        calls = ", ".join(f"{c.name}({c.args})" for c in step.tool_calls)
+        outputs = " | ".join(r.output for r in step.results)
+        lines.append(f"turn {i}: called [{calls}] -> {outputs}")
+    return "\n".join(lines)
+
+
+def _describe_decision(decision: Decision) -> dict[str, object]:
+    """Fields for the AI RESPONSE block: either the final answer or the requested tool calls."""
+    if decision.is_final:
+        return {"decision": "final answer", "answer": decision.finish}
+    calls = "; ".join(f"{c.name}({c.args})" for c in decision.tool_calls)
+    return {"decision": "call tools", "tool_calls": calls}
+
+
 def run_agent(
     *, task: str, registry: ToolRegistry, policy: Policy, max_steps: int = 6
 ) -> tuple[str, list[Step]]:
@@ -375,12 +411,33 @@ def run_agent(
     return its answer; otherwise run the requested tools, append the (calls, results) pair
     to `history`, and ask again. `max_steps` is the safety fuse — without it a confused
     policy could call tools forever (and burn money on a live API).
+
+    With `LLM_DEBUG=1` each turn prints three blocks to stderr: what the policy was shown
+    (AI REQUEST), what it decided (AI RESPONSE), and what each tool returned (TOOL RESULT).
     """
     history: list[Step] = []
-    for _ in range(max_steps):
+    for step_no in range(1, max_steps + 1):
+        if debug_enabled():
+            log_block(
+                f"AI REQUEST (agent step {step_no})",
+                policy=_policy_label(policy),
+                task=task,
+                tools_offered=", ".join(registry.names()),
+                history=_describe_history(history),
+            )
         decision = policy.decide(task, history)
+        if debug_enabled():
+            log_block(f"AI RESPONSE (agent step {step_no})", **_describe_decision(decision))
         if decision.is_final:
             return decision.finish or "", history
         results = [registry.execute(c) for c in decision.tool_calls]
+        if debug_enabled():
+            for result in results:
+                log_block(
+                    f"TOOL RESULT (step {step_no})",
+                    tool=result.name,
+                    is_error=result.is_error,
+                    output=result.output,
+                )
         history.append(Step(tool_calls=decision.tool_calls, results=results))
     return "(stopped: reached max steps)", history
